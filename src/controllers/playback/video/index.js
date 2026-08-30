@@ -801,10 +801,11 @@ export default function (view) {
     // abrio el reproductor. Devuelve ese origen en ticks o null si no es start-over.
     function getStartoverOriginTicks() {
         const mediaSource = currentPlayer?.streamInfo?.mediaSource;
-        if (!mediaSource?.Id || !mediaSource.Id.endsWith('-startover')) {
+        const path = mediaSource?.Path || '';
+        if (!mediaSource?.IsInfiniteStream || path.includes('end=')) {
             return null;
         }
-        const match = /[?&]begin=(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/.exec(mediaSource.Path || '');
+        const match = /[?&]begin=(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/.exec(path);
         if (!match) {
             return null;
         }
