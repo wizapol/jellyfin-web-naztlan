@@ -452,3 +452,12 @@
     border-radius: 0.15em !important;
     transform: none !important;
 }
+
+/* naztlan: aired programme that can still be played via catchup */
+.programCell-catchup:not(.programCell-active) .guideProgramNameText {
+    opacity: 1;
+}
+
+.programCell-catchup .guide-programTextIcon.replay {
+    opacity: 0.75;
+}

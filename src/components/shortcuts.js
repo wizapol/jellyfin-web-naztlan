@@ -14,6 +14,7 @@ import recordingHelper from './recordingcreator/recordinghelper';
 import toast from './toast/toast';
 import * as userSettings from '../scripts/settings/userSettings';
 import { toApi } from 'utils/jellyfin-apiclient/compat';
+import { getPlayableItemId } from './naztlanCatchup';
 
 function playAllFromHere(card, serverId, queue) {
     const parent = card.parentNode;
@@ -229,7 +230,7 @@ function executeAction(card, target, action) {
     const serverId = item.ServerId;
     const type = item.Type;
 
-    const playableItemId = type === 'Program' ? item.ChannelId : item.Id;
+    const playableItemId = getPlayableItemId(item);
 
     if (item.MediaType === 'Photo' && action === 'link') {
         action = 'play';

@@ -33,6 +33,7 @@ import * as userSettings from 'scripts/settings/userSettings';
 import { getPortraitShape, getSquareShape } from 'utils/card';
 import Dashboard from 'utils/dashboard';
 import Events from 'utils/events';
+import { canPlayProgram, hasCatchup, isProgramAiring, refreshCatchupMap } from 'components/naztlanCatchup';
 import { getItemBackdropImageUrl } from 'utils/jellyfin-apiclient/backdropImage';
 
 import 'elements/emby-itemscontainer/emby-itemscontainer';
@@ -322,16 +323,24 @@ function reloadPlayButtons(page, item) {
     let canPlay = false;
 
     if (item.Type == 'Program') {
-        const now = new Date();
-
-        if (now >= datetime.parseISO8601Date(item.StartDate, true) && now < datetime.parseISO8601Date(item.EndDate, true)) {
+        const catchup = hasCatchup(item);
+        const airing = isProgramAiring(item);
+        if (canPlayProgram(item)) {
             hideAll(page, 'btnPlay', true);
+            for (const button of page.querySelectorAll('.btnPlay')) {
+                button.title = airing && catchup ? 'Ver desde el inicio' : 'Ver programa';
+                button.setAttribute('data-action', catchup ? 'catchup' : 'live');
+            }
             canPlay = true;
         } else {
             hideAll(page, 'btnPlay');
         }
 
-        hideAll(page, 'btnReplay');
+        hideAll(page, 'btnReplay', airing && catchup);
+        for (const button of page.querySelectorAll('.btnReplay')) {
+            button.title = 'En directo';
+            button.setAttribute('data-action', 'live');
+        }
         hideAll(page, 'btnInstantMix');
         hideAll(page, 'btnShuffle');
     } else if (playbackManager.canPlay(item)) {
@@ -1928,7 +1937,7 @@ export default function (view, params) {
 
         const apiClient = getApiClient();
 
-        Promise.all([getPromise(apiClient, pageParams), apiClient.getCurrentUser()]).then(([item, user]) => {
+        Promise.all([getPromise(apiClient, pageParams), apiClient.getCurrentUser(), refreshCatchupMap(apiClient)]).then(([item, user]) => {
             currentItem = item;
             reloadFromItem(instance, page, pageParams, item, user);
         }).catch((error) => {
@@ -1972,7 +1981,7 @@ export default function (view, params) {
     function playCurrentItem(button, mode) {
         const item = currentItem;
 
-        if (item.Type === 'Program') {
+        if (item.Type === 'Program' && (mode === 'live' || !hasCatchup(item))) {
             const apiClient = ServerConnections.getApiClient(item.ServerId);
             apiClient.getLiveTvChannel(item.ChannelId, apiClient.getCurrentUserId()).then(function (channel) {
                 playbackManager.play({

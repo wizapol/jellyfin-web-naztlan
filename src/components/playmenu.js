@@ -2,13 +2,14 @@ import actionsheet from './actionSheet/actionSheet';
 import datetime from '../scripts/datetime';
 import { playbackManager } from './playback/playbackmanager';
 import globalize from '../lib/globalize';
+import { getPlayableItemId } from './naztlanCatchup';
 
 export function show(options) {
     const item = options.item;
 
     const resumePositionTicks = item.UserData ? item.UserData.PlaybackPositionTicks : null;
 
-    const playableItemId = item.Type === 'Program' ? item.ChannelId : item.Id;
+    const playableItemId = getPlayableItemId(item);
 
     if (!resumePositionTicks || item.IsFolder) {
         playbackManager.play({

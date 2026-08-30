@@ -13,6 +13,7 @@ import { playbackManager } from './playback/playbackmanager';
 import toast from './toast/toast';
 import * as userSettings from '../scripts/settings/userSettings';
 import { AppFeature } from 'constants/appFeature';
+import { getPlayableItemId } from './naztlanCatchup';
 
 /** Item types that support downloading all children. */
 const DOWNLOAD_ALL_TYPES = [
@@ -693,7 +694,7 @@ function play(item, resume, queue, queueNext) {
 
     if (item.Type === 'Program') {
         playbackManager[method]({
-            ids: [item.ChannelId],
+            ids: [getPlayableItemId(item)],
             startPositionTicks: startPosition,
             serverId: item.ServerId
         });

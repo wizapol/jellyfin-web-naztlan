@@ -27,6 +27,7 @@ import '../../elements/emby-scroller/emby-scroller';
 import '../../styles/flexstyles.scss';
 import 'webcomponents.js/webcomponents-lite';
 import template from './tvguide.template.html';
+import { hasCatchup, refreshCatchupMap } from '../naztlanCatchup';
 
 function showViewSettings(instance) {
     import('./guide-settings').then(({ default: guideSettingsDialog }) => {
@@ -111,15 +112,18 @@ function onProgramGridClick(e) {
         endDate = datetime.parseISO8601Date(endDate, { toLocal: true }).getTime();
 
         const now = new Date().getTime();
-        if (now >= startDate && now < endDate) {
-            const channelId = programCell.getAttribute('data-channelid');
+        const catchupAvailable = programCell.getAttribute('data-catchup') === 'true';
+        if ((now >= startDate && now < endDate) || catchupAvailable) {
+            const playableId = catchupAvailable ?
+                programCell.getAttribute('data-id') :
+                programCell.getAttribute('data-channelid');
             const serverId = programCell.getAttribute('data-serverid');
 
             e.preventDefault();
             e.stopPropagation();
 
             playbackManager.play({
-                ids: [channelId],
+                ids: [playableId],
                 serverId: serverId
             });
         }
@@ -521,6 +525,10 @@ function Guide(options) {
             if (now >= startDateLocalMs && now < endDateLocalMs) {
                 cssClass += ' programCell-active';
             }
+            const catchupAvailable = hasCatchup(program, now);
+            if (catchupAvailable) {
+                cssClass += ' programCell-catchup';
+            }
 
             let timerAttributes = '';
             if (program.TimerId) {
@@ -532,7 +540,7 @@ function Guide(options) {
 
             const isAttribute = endPercent >= 2 ? ' is="emby-programcell"' : '';
 
-            html += '<button' + isAttribute + ' data-action="' + clickAction + '"' + timerAttributes + ' data-channelid="' + program.ChannelId + '" data-id="' + program.Id + '" data-serverid="' + program.ServerId + '" data-startdate="' + program.StartDate + '" data-enddate="' + program.EndDate + '" data-type="' + program.Type + '" class="' + cssClass + '" style="left:' + startPercent + '%;width:' + endPercent + '%;">';
+            html += '<button' + isAttribute + ' data-action="' + clickAction + '"' + timerAttributes + ' data-channelid="' + program.ChannelId + '" data-id="' + program.Id + '" data-serverid="' + program.ServerId + '" data-startdate="' + program.StartDate + '" data-enddate="' + program.EndDate + '" data-catchup="' + catchupAvailable + '" data-type="' + program.Type + '" class="' + cssClass + '" style="left:' + startPercent + '%;width:' + endPercent + '%;">';
 
             if (displayInnerContent) {
                 const guideProgramNameClass = 'guideProgramName';
@@ -542,6 +550,10 @@ function Guide(options) {
                 html += '<div class="guide-programNameCaret hide"><span class="guideProgramNameCaretIcon material-icons keyboard_arrow_left" aria-hidden="true"></span></div>';
 
                 html += '<div class="guideProgramNameText">' + escapeHtml(program.Name);
+
+                if (catchupAvailable && now >= endDateLocalMs) {
+                    html += '<span class="material-icons programIcon guide-programTextIcon replay" title="Catchup" aria-label="Catchup"></span>';
+                }
 
                 let indicatorHtml = null;
                 if (program.IsLive && programOptions.showLiveIndicator) {
@@ -813,21 +825,18 @@ function Guide(options) {
     }
 
     function setDateRange(page, guideInfo) {
-        const today = new Date();
-        const nowHours = today.getHours();
-        today.setHours(nowHours, 0, 0, 0);
-
-        let start = datetime.parseISO8601Date(guideInfo.StartDate, { toLocal: true });
+        // naztlan: the server reports StartDate in the past (retained catchup days);
+        // every day, including today, starts at midnight so aired programmes are
+        // visible in the grid. The initial scroll still lands on the current hour.
+        const start = datetime.parseISO8601Date(guideInfo.StartDate, { toLocal: true });
         const end = datetime.parseISO8601Date(guideInfo.EndDate, { toLocal: true });
 
-        start.setHours(nowHours, 0, 0, 0);
+        start.setHours(0, 0, 0, 0);
         end.setHours(0, 0, 0, 0);
 
         if (start.getTime() >= end.getTime()) {
             end.setDate(start.getDate() + 1);
         }
-
-        start = new Date(Math.max(today, start));
 
         let dateTabsHtml = '';
         let tabIndex = 0;
@@ -839,10 +848,9 @@ function Guide(options) {
             date.setTime(currentDate.getTime());
         }
 
-        date.setHours(nowHours, 0, 0, 0);
+        date.setHours(0, 0, 0, 0);
 
-        let startTimeOfDayMs = (start.getHours() * 60 * 60 * 1000);
-        startTimeOfDayMs += start.getMinutes() * 60 * 1000;
+        const startTimeOfDayMs = 0;
 
         while (start <= end) {
             const isActive = date.getDate() === start.getDate() && date.getMonth() === start.getMonth() && date.getFullYear() === start.getFullYear();
@@ -875,7 +883,7 @@ function Guide(options) {
 
         const apiClient = ServerConnections.getApiClient(options.serverId);
 
-        apiClient.getLiveTvGuideInfo().then(function (guideInfo) {
+        Promise.all([apiClient.getLiveTvGuideInfo(), refreshCatchupMap(apiClient)]).then(function ([guideInfo]) {
             setDateRange(page, guideInfo);
         });
     }

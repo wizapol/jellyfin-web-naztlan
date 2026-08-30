@@ -8,7 +8,6 @@ import merge from 'lodash-es/merge';
 import Screenfull from 'screenfull';
 
 import Events from '../../utils/events.ts';
-import datetime from '../../scripts/datetime';
 import appSettings from '../../scripts/settings/appSettings';
 import itemHelper from '../itemHelper';
 import { pluginManager } from '../pluginManager';
@@ -32,6 +31,7 @@ import { MediaError } from 'types/mediaError';
 import { getMediaError } from 'utils/mediaError';
 import { toApi } from 'utils/jellyfin-apiclient/compat';
 import { bindSkipSegment } from './skipsegment.ts';
+import { canPlayProgram } from '../naztlanCatchup';
 
 const UNLIMITED_ITEMS = -1;
 
@@ -1033,11 +1033,7 @@ export class PlaybackManager {
             }
 
             if (itemType === 'Program') {
-                if (!item.EndDate || !item.StartDate) {
-                    return false;
-                }
-
-                if (new Date().getTime() > datetime.parseISO8601Date(item.EndDate).getTime() || new Date().getTime() < datetime.parseISO8601Date(item.StartDate).getTime()) {
+                if (!canPlayProgram(item)) {
                     return false;
                 }
             }
