@@ -224,9 +224,15 @@ export default function (view) {
         enableProgressByTimeOfDay = shouldEnableProgressByTimeOfDay(item);
         getDisplayItem(item).then(updateDisplayItem);
         nowPlayingVolumeSlider.disabled = false;
-        nowPlayingPositionSlider.disabled = false;
-        btnFastForward.disabled = false;
-        btnRewind.disabled = false;
+        // naztlan: en un canal en directo la barra es la de "hora del dia" y NO se puede buscar
+        // (el seek acaba resolviendose a 0 y la reproduccion vuelve al principio del bufer, que es
+        // justo lo que se veia). Se deshabilitan barra y saltos para no ofrecer algo que no
+        // funciona: para moverse dentro del programa esta "Ver desde el inicio", que si es
+        // seekable. Un programa (catchup o start-over) no entra aqui y conserva sus controles.
+        const enDirectoSinBusqueda = enableProgressByTimeOfDay;
+        nowPlayingPositionSlider.disabled = enDirectoSinBusqueda;
+        btnFastForward.disabled = enDirectoSinBusqueda;
+        btnRewind.disabled = enDirectoSinBusqueda;
 
         if (playbackManager.subtitleTracks(player).length) {
             view.querySelector('.btnSubtitles').classList.remove('hide');
