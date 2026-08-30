@@ -50,6 +50,20 @@ export default function (view) {
             });
         }
 
+        // naztlan: un programa reproducido en start-over dibuja la barra por hora del dia y para
+        // eso necesita StartDate/EndDate. El NowPlayingItem del programa no siempre los trae, y sin
+        // ellos programStartDateMs queda a 0, updateTimeDisplay cae en la rama sin datos y el
+        // slider se queda clavado en 0 sin horas: exactamente "como si fuera en vivo"
+        // (medido 2026-08-30). Se refresca el item del servidor, igual que con TvChannel.
+        if (item.Type === 'Program' && (!item.StartDate || !item.EndDate)) {
+            const apiClient = ServerConnections.getApiClient(item.ServerId);
+            return apiClient.getItem(apiClient.getCurrentUserId(), item.Id).then(function (refreshedItem) {
+                return { originalItem: refreshedItem };
+            }).catch(function () {
+                return { originalItem: item };
+            });
+        }
+
         return Promise.resolve({
             originalItem: item
         });
@@ -182,11 +196,10 @@ export default function (view) {
     }
 
     function shouldEnableProgressByTimeOfDay(item) {
-        // naztlan: un programa reproducido en start-over tambien se dibuja por hora del dia
-        // (inicio..fin del programa); el catchup de un programa pasado es VOD normal.
-        if (item.Type === 'Program' && getStartoverOriginTicks() !== null) {
-            return true;
-        }
+        // naztlan: la barra "por hora del dia" es la de un canal en directo: borra los tiempos,
+        // depende de programStartDateMs y deja el slider clavado si esos datos no llegan a tiempo.
+        // Un programa en start-over NO la usa: se dibuja como el catchup, con posicion y duracion
+        // del programa (RunTimeTicks lo declara el plugin), que es lo que permite retroceder.
         return !(item.Type !== 'TvChannel' || !item.CurrentProgram);
     }
 
