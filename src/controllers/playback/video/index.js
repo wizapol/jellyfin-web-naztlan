@@ -182,6 +182,11 @@ export default function (view) {
     }
 
     function shouldEnableProgressByTimeOfDay(item) {
+        // naztlan: un programa reproducido en start-over tambien se dibuja por hora del dia
+        // (inicio..fin del programa); el catchup de un programa pasado es VOD normal.
+        if (item.Type === 'Program' && getStartoverOriginTicks() !== null) {
+            return true;
+        }
         return !(item.Type !== 'TvChannel' || !item.CurrentProgram);
     }
 
@@ -791,7 +796,27 @@ export default function (view) {
         return (currentTimeMs - programStartDateMs) / programRuntimeMs * 100;
     }
 
+    // naztlan: en una fuente de start-over (plugin NaztlanCatchup) la posicion 0 del reproductor
+    // es el inicio del programa (begin= del CDN, UTC YYYYMMDDTHHMMSS), no la hora a la que se
+    // abrio el reproductor. Devuelve ese origen en ticks o null si no es start-over.
+    function getStartoverOriginTicks() {
+        const mediaSource = currentPlayer?.streamInfo?.mediaSource;
+        if (!mediaSource?.Id || !mediaSource.Id.endsWith('-startover')) {
+            return null;
+        }
+        const match = /[?&]begin=(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/.exec(mediaSource.Path || '');
+        if (!match) {
+            return null;
+        }
+        const [, y, mo, d, h, mi, sec] = match.map(Number);
+        return Date.UTC(y, mo - 1, d, h, mi, sec) * 1e4;
+    }
+
     function updateTimeDisplay(positionTicks, runtimeTicks, playbackStartTimeTicks, playbackRate, bufferedRanges) {
+        const startoverOriginTicks = getStartoverOriginTicks();
+        if (startoverOriginTicks !== null) {
+            playbackStartTimeTicks = startoverOriginTicks;
+        }
         if (enableProgressByTimeOfDay) {
             if (nowPlayingPositionSlider && !nowPlayingPositionSlider.dragging) {
                 if (programStartDateMs && programEndDateMs) {
@@ -1859,7 +1884,9 @@ export default function (view) {
             if (enableProgressByTimeOfDay) {
                 let seekAirTimeTicks = newPercent / 100 * (programEndDateMs - programStartDateMs) * 1e4;
                 seekAirTimeTicks += 1e4 * programStartDateMs;
-                seekAirTimeTicks -= playbackStartTimeTicks;
+                seekAirTimeTicks -= getStartoverOriginTicks() ?? playbackStartTimeTicks;
+                // naztlan: en start-over no se puede ir mas alla de lo que ffmpeg ya ha escrito
+                seekAirTimeTicks = Math.max(seekAirTimeTicks, 0);
                 playbackManager.seek(seekAirTimeTicks, player);
             } else {
                 playbackManager.seekPercent(newPercent, player);
