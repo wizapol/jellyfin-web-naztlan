@@ -18,7 +18,7 @@ import '../formdialog.scss';
 import './recordingcreator.scss';
 import 'material-design-icons-iconfont';
 import { playbackManager } from '../playback/playbackmanager';
-import { canPlayProgram, getPlayableItemId, isProgramAiring, refreshCatchupMap } from '../naztlanCatchup';
+import { canPlayProgram, getPlayableItemId, hasCatchup, isProgramAiring, refreshCatchupMap } from '../naztlanCatchup';
 import template from './recordingcreator.template.html';
 
 import PlaceholderImage from './empty.png';
@@ -34,6 +34,12 @@ function closeDialog() {
 function init(context) {
     context.querySelector('.btnPlay').addEventListener('click', function () {
         closeAction = 'play';
+        closeDialog();
+    });
+
+    // naztlan: ver el programa desde su inicio (start-over) cuando el canal tiene catchup
+    context.querySelector('.btnStartover').addEventListener('click', function () {
+        closeAction = 'startover';
         closeDialog();
     });
 
@@ -95,6 +101,20 @@ function renderRecording(context, defaultTimer, program, apiClient, refreshRecor
             formDialogFooter.classList.add('hide');
         }
 
+        // naztlan: el catchup y el start-over se ofrecen aqui, en la guia, con su nombre a la vista.
+        // En emision + startover -> "En directo" + "Ver desde el inicio"; ya emitido -> "Ver programa".
+        const airing = isProgramAiring(program);
+        const catchup = hasCatchup(program);
+        const btnStartover = context.querySelector('.btnStartover');
+        const btnPlayText = context.querySelector('.btnPlayText');
+        if (airing && catchup) {
+            btnPlayText.innerText = 'En directo';
+            btnStartover.classList.remove('hide');
+        } else {
+            btnPlayText.innerText = catchup ? 'Ver programa' : globalize.translate('Play');
+            btnStartover.classList.add('hide');
+        }
+
         context.querySelector('.itemMiscInfoPrimary').innerHTML = mediaInfo.getPrimaryMediaInfoHtml(program);
     }
 
@@ -121,13 +141,15 @@ function reload(context, programId, serverId, refreshRecordingStateOnly) {
 }
 
 function executeCloseAction(action, programId, serverId) {
-    if (action === 'play') {
+    if (action === 'play' || action === 'startover') {
         const apiClient = ServerConnections.getApiClient(serverId);
 
         apiClient.getLiveTvProgram(programId, apiClient.getCurrentUserId()).then(function (item) {
-            // naztlan: en emision → el canal (directo); ya emitido con catchup → el programa
+            // naztlan: "play" en emision → el canal (directo); ya emitido con catchup → el programa.
+            // "startover" → siempre el programa: el plugin resuelve la fuente desde su inicio.
+            const playLive = action === 'play' && isProgramAiring(item);
             playbackManager.play({
-                ids: [isProgramAiring(item) ? item.ChannelId : getPlayableItemId(item)],
+                ids: [playLive ? item.ChannelId : getPlayableItemId(item)],
                 serverId: serverId
             });
         });
