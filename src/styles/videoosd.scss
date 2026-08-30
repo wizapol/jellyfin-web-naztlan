@@ -207,10 +207,14 @@
     }
 }
 
-@media all and (max-width: 50em) {
+// naztlan: upstream esconde retroceder/avanzar por debajo de 50em (~800 px), asi que en un
+// movil no habia forma de moverse dentro de un catchup o un start-over: la barra se veia pero
+// los dos botones no. Se conservan en todo tamano; el hueco lo dan el volumen (oculto <43em) y
+// "Ends at" (oculto <75em), que ya desaparecen antes en pantallas estrechas.
+@media all and (max-width: 25em) {
     .videoOsdBottom .btnFastForward,
     .videoOsdBottom .btnRewind {
-        display: none !important;
+        margin: 0;
     }
 }
 
