@@ -31,7 +31,7 @@ import { MediaError } from 'types/mediaError';
 import { getMediaError } from 'utils/mediaError';
 import { toApi } from 'utils/jellyfin-apiclient/compat';
 import { bindSkipSegment } from './skipsegment.ts';
-import { canPlayProgram } from '../naztlanCatchup';
+import { canPlayProgram, hasCatchup } from '../naztlanCatchup';
 
 const UNLIMITED_ITEMS = -1;
 
@@ -1831,6 +1831,11 @@ export class PlaybackManager {
 
             switch (firstItem.Type) {
                 case BaseItemKind.Program:
+                    // naztlan: un programa con catchup/start-over se reproduce por su propio Id
+                    // (el servidor le da la fuente del plugin); si no, el canal como upstream.
+                    if (hasCatchup(firstItem)) {
+                        return Promise.resolve({ Items: [firstItem], TotalRecordCount: 1 });
+                    }
                     return getItemsForPlayback(serverId, {
                         Ids: firstItem.ChannelId
                     });

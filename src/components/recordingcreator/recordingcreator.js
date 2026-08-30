@@ -5,7 +5,6 @@ import layoutManager from '../layoutManager';
 import mediaInfo from '../mediainfo/mediainfo';
 import loading from '../loading/loading';
 import scrollHelper from '../../scripts/scrollHelper';
-import datetime from '../../scripts/datetime';
 import imageLoader from '../images/imageLoader';
 import RecordingFields from './recordingfields';
 import Events from '../../utils/events.ts';
@@ -19,6 +18,7 @@ import '../formdialog.scss';
 import './recordingcreator.scss';
 import 'material-design-icons-iconfont';
 import { playbackManager } from '../playback/playbackmanager';
+import { canPlayProgram, getPlayableItemId, isProgramAiring, refreshCatchupMap } from '../naztlanCatchup';
 import template from './recordingcreator.template.html';
 
 import PlaceholderImage from './empty.png';
@@ -88,8 +88,8 @@ function renderRecording(context, defaultTimer, program, apiClient, refreshRecor
         context.querySelector('.itemOverview').innerText = program.Overview || '';
 
         const formDialogFooter = context.querySelector('.formDialogFooter');
-        const now = new Date();
-        if (now >= datetime.parseISO8601Date(program.StartDate, true) && now < datetime.parseISO8601Date(program.EndDate, true)) {
+        // naztlan: tambien se puede reproducir un programa ya emitido si su canal tiene catchup
+        if (canPlayProgram(program)) {
             formDialogFooter.classList.remove('hide');
         } else {
             formDialogFooter.classList.add('hide');
@@ -112,7 +112,7 @@ function reload(context, programId, serverId, refreshRecordingStateOnly) {
     const promise1 = apiClient.getNewLiveTvTimerDefaults({ programId: programId });
     const promise2 = apiClient.getLiveTvProgram(programId, apiClient.getCurrentUserId());
 
-    Promise.all([promise1, promise2]).then(function (responses) {
+    Promise.all([promise1, promise2, refreshCatchupMap(apiClient)]).then(function (responses) {
         const defaults = responses[0];
         const program = responses[1];
 
@@ -125,8 +125,9 @@ function executeCloseAction(action, programId, serverId) {
         const apiClient = ServerConnections.getApiClient(serverId);
 
         apiClient.getLiveTvProgram(programId, apiClient.getCurrentUserId()).then(function (item) {
+            // naztlan: en emision → el canal (directo); ya emitido con catchup → el programa
             playbackManager.play({
-                ids: [item.ChannelId],
+                ids: [isProgramAiring(item) ? item.ChannelId : getPlayableItemId(item)],
                 serverId: serverId
             });
         });
