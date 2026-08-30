@@ -113,10 +113,14 @@ function onProgramGridClick(e) {
 
         const now = new Date().getTime();
         const catchupAvailable = programCell.getAttribute('data-catchup') === 'true';
-        if ((now >= startDate && now < endDate) || catchupAvailable) {
-            const playableId = catchupAvailable ?
-                programCell.getAttribute('data-id') :
-                programCell.getAttribute('data-channelid');
+        const airing = now >= startDate && now < endDate;
+        if (airing || catchupAvailable) {
+            // naztlan: lo que esta en emision sigue abriendo el directo del canal (como upstream);
+            // el start-over se pide desde la ficha del programa. Lo ya emitido abre el programa
+            // (catchup) por su Id, que el servidor resuelve a la fuente del plugin.
+            const playableId = airing ?
+                programCell.getAttribute('data-channelid') :
+                programCell.getAttribute('data-id');
             const serverId = programCell.getAttribute('data-serverid');
 
             e.preventDefault();
