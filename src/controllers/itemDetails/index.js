@@ -319,27 +319,50 @@ function renderSubtitleSelections(page, mediaSources) {
     }
 }
 
+function setNaztlanLabel(button, text) {
+    const label = button.querySelector('.naztlanBtnLabel');
+    if (!label) {
+        return;
+    }
+    if (text) {
+        label.innerText = text;
+        label.classList.remove('hide');
+    } else {
+        label.classList.add('hide');
+    }
+}
+
 function reloadPlayButtons(page, item) {
     let canPlay = false;
+
+    // naztlan: los botones de la ficha son iconos; para catchup/start-over se les pone texto
+    for (const label of page.querySelectorAll('.naztlanBtnLabel')) {
+        label.classList.add('hide');
+    }
 
     if (item.Type == 'Program') {
         const catchup = hasCatchup(item);
         const airing = isProgramAiring(item);
+        const playTitle = airing ? 'En directo' : 'Ver programa';
         if (canPlayProgram(item)) {
             hideAll(page, 'btnPlay', true);
             for (const button of page.querySelectorAll('.btnPlay')) {
-                button.title = airing && catchup ? 'Ver desde el inicio' : 'Ver programa';
-                button.setAttribute('data-action', catchup ? 'catchup' : 'live');
+                // naztlan: en emision el play es el directo; ya emitido reproduce el programa (catchup)
+                button.title = playTitle;
+                button.setAttribute('data-action', airing ? 'live' : 'catchup');
+                setNaztlanLabel(button, catchup ? playTitle : '');
             }
             canPlay = true;
         } else {
             hideAll(page, 'btnPlay');
         }
 
+        // naztlan: el icono de repeticion es el start-over, y solo aplica a lo que esta en emision
         hideAll(page, 'btnReplay', airing && catchup);
         for (const button of page.querySelectorAll('.btnReplay')) {
-            button.title = 'En directo';
-            button.setAttribute('data-action', 'live');
+            button.title = 'Ver desde el inicio';
+            button.setAttribute('data-action', 'catchup');
+            setNaztlanLabel(button, 'Ver desde el inicio');
         }
         hideAll(page, 'btnInstantMix');
         hideAll(page, 'btnShuffle');
